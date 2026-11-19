@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Glass TV — nada específico do aparelho ou pessoal vai para o repositório.
+# ---------------------------------------------------------------------------
+
+# Certificados e perfis de assinatura Samsung/Tizen (ficam FORA do repo)
+*.p12
+*.pfx
+*.csr
+profiles.xml
+author-signature.xml
+signature*.xml
+
+# Pacotes e saída de build
+*.wgt
+build/
+dist/
+app/.buildResult/
+app/.project
+app/.tproject
+app/.settings/
+
+# Configuração local do aparelho (IP, perfil de certificado, caminhos)
+.env
+.env.*
+!.env.example
+tv.config.*
+
+# Fotos pessoais adicionadas como wallpaper e o manifesto delas
+app/wallpapers/user/
+app/wallpapers/manifest.user.js
+
+# Logs, diagnósticos e dumps do aparelho
+logs/
+dumps/
+*.log
+
+# Saída de testes locais (screenshots da prévia)
+test-results/
+
+# Ambiente
+node_modules/
+.DS_Store

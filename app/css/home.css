@@ -1,0 +1,243 @@
+/* Tela inicial: wallpaper, relógio e dock. */
+
+.wallpaper { position: absolute; inset: 0; overflow: hidden; }
+
+.wallpaper__layer {
+  position: absolute;
+  inset: 0;
+  background-color: #0b0d12;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity var(--dur-fade) ease;
+  will-change: opacity;
+}
+
+.wallpaper__layer.is-visible { opacity: 1; }
+
+.wallpaper.is-moving .wallpaper__layer.is-visible {
+  animation: wallpaper-drift 90s ease-in-out infinite alternate;
+}
+
+@keyframes wallpaper-drift {
+  from { transform: scale(1.03) translate3d(0, 0, 0); }
+  to { transform: scale(1.09) translate3d(-1.4%, -0.9%, 0); }
+}
+
+.wallpaper__shade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.36) 0%, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0) 56%, rgba(0, 0, 0, 0.46) 100%);
+}
+
+.home {
+  position: absolute;
+  inset: 0;
+  transition: transform var(--dur-slow) var(--ease), opacity var(--dur) var(--ease);
+}
+
+.home.is-covered {
+  transform: scale(0.985);
+}
+
+/* ---- Relógio ------------------------------------------------------------ */
+.clock {
+  position: absolute;
+  left: var(--safe-x);
+  top: 80px;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.3);
+  transition: opacity var(--dur) var(--ease);
+}
+
+.clock__time {
+  font-size: 104px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock__suffix {
+  margin-left: 12px;
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0.8;
+}
+
+.clock__date {
+  margin-top: 16px;
+  font-size: 32px;
+  font-weight: 400;
+  opacity: 0.88;
+}
+
+.clock .is-hidden { display: none; }
+
+/* ---- Dock --------------------------------------------------------------- */
+.dock-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.dock-caption {
+  position: relative;
+  width: 100%;
+  height: 44px;
+  margin-bottom: 26px;
+}
+
+.dock-caption__inner {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 30px;
+  font-weight: 500;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+  transition: left var(--dur) var(--ease), opacity var(--dur-fast) var(--ease);
+}
+
+.dock-caption__inner.is-empty { opacity: 0; }
+
+.dock-caption__status {
+  margin-left: 14px;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--warn);
+}
+
+.dock-caption__status:empty { display: none; }
+
+.dock {
+  --tile-w: 200px;
+  --tile-h: 120px;
+  --dock-gap: 24px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--dock-gap);
+  padding: 24px 28px;
+  border-radius: 48px;
+}
+
+.dock__divider {
+  flex: none;
+  width: 2px;
+  height: calc(var(--tile-h) * 0.62);
+  margin: 0 2px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.tile {
+  position: relative;
+  flex: none;
+  width: var(--tile-w);
+  height: var(--tile-h);
+  border-radius: 26px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), opacity var(--dur);
+}
+
+.tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.04) 42%, rgba(255, 255, 255, 0) 60%);
+  opacity: 0.45;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+
+.tile.is-focused {
+  z-index: 2;
+  transform: translate3d(0, var(--focus-lift), 0) scale(var(--focus-scale));
+  box-shadow: var(--ring), var(--shadow-focus);
+}
+
+.tile.is-focused::after { opacity: 1; }
+
+.tile--app { background: linear-gradient(150deg, var(--c2, #3f6db3) 0%, var(--c1, #1d2b45) 100%); }
+
+.tile--system {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.12) 100%);
+}
+
+.tile__label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  text-align: center;
+  font-size: 29px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+
+.tile__label.is-long { font-size: 24px; }
+.tile__label.is-xlong { font-size: 20px; }
+
+.tile__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile--system .tile__body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tile--system .icon { width: 46px; height: 46px; }
+
+.tile--system .tile__caption {
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.tile.is-missing { opacity: 0.5; }
+.tile.is-missing.is-focused { opacity: 0.85; }
+
+.tile__badge {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--warn);
+  color: #1a1206;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 26px;
+  text-align: center;
+}
+
+.tile.is-pending { animation: tile-pulse 900ms ease-in-out infinite; }
+
+@keyframes tile-pulse {
+  50% { opacity: 0.6; }
+}

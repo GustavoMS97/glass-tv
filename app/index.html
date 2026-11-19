@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-motion="full" data-glass="full">
+<head>
+  <meta charset="utf-8">
+  <!-- Apps web da Samsung TV são renderizados em 1920x1080 (mesmo em TVs 4K);
+       o vídeo (incluindo HDMI na janela de TV) mantém a resolução nativa. -->
+  <meta name="viewport" content="width=1920, user-scalable=no">
+  <title>Glass TV</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/home.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/settings.css">
+</head>
+<body class="is-booting">
+  <div id="stage" class="stage">
+
+    <div id="wallpaper" class="wallpaper" aria-hidden="true">
+      <div class="wallpaper__layer"></div>
+      <div class="wallpaper__layer"></div>
+      <div class="wallpaper__shade"></div>
+    </div>
+
+    <main id="home" class="home">
+      <header id="clock" class="clock">
+        <div class="clock__time"><span class="clock__main"></span><span class="clock__suffix"></span></div>
+        <div class="clock__date"></div>
+      </header>
+
+      <div class="dock-area">
+        <div id="dock-caption" class="dock-caption" aria-live="polite">
+          <div class="dock-caption__inner"><span class="dock-caption__name"></span><span class="dock-caption__status"></span></div>
+        </div>
+        <nav id="dock" class="dock glass" aria-label="Aplicativos"></nav>
+      </div>
+    </main>
+
+    <section id="inputs" class="layer inputs" aria-label="Entradas">
+      <div class="scrim"></div>
+      <div class="inputs__content">
+        <h1 class="inputs__title">Entradas</h1>
+        <div id="inputs-cards" class="inputs__cards"></div>
+        <p id="inputs-note" class="inputs__note"></p>
+      </div>
+      <footer class="hints">
+        <span><span class="key">◀ ▶</span>Navegar</span>
+        <span><span class="key">OK</span>Exibir</span>
+        <span><span class="key">1–4</span>Atalho</span>
+        <span><span class="key">Voltar</span>Fechar</span>
+      </footer>
+    </section>
+
+    <section id="settings" class="layer settings" aria-label="Ajustes"></section>
+
+    <section id="hdmi" class="layer hdmi" aria-label="Entrada HDMI">
+      <div class="hdmi__sim"></div>
+      <div class="hdmi__osd glass"></div>
+    </section>
+
+    <section id="appsim" class="layer appsim" aria-label="Aplicativo (simulação)"></section>
+
+    <section id="screensaver" class="layer screensaver" aria-hidden="true">
+      <div class="ss__layer"></div>
+      <div class="ss__layer"></div>
+      <div class="ss__clock"><div class="ss__time"></div><div class="ss__date"></div></div>
+    </section>
+
+    <div id="toasts" class="toasts" aria-live="assertive"></div>
+    <div id="preview-badge" class="preview-badge">Prévia no navegador · TV simulada</div>
+  </div>
+
+  <!-- Núcleo (sem DOM; testado em Node) -->
+  <script src="js/core/ns.js"></script>
+  <script src="js/core/keys.js"></script>
+  <script src="js/core/focus.js"></script>
+  <script src="js/core/time.js"></script>
+  <script src="js/core/apps.js"></script>
+  <script src="js/core/inputs.js"></script>
+  <script src="js/core/idle.js"></script>
+  <script src="js/core/store.js"></script>
+  <script src="wallpapers/manifest.js"></script>
+  <!-- Plataforma (Tizen ou prévia) -->
+  <script src="js/platform/platform.js"></script>
+  <!-- Interface -->
+  <script src="js/ui/dom.js"></script>
+  <script src="js/ui/wallpaper.js"></script>
+  <script src="js/ui/clock.js"></script>
+  <script src="js/ui/toast.js"></script>
+  <script src="js/ui/screensaver.js"></script>
+  <script src="js/ui/home.js"></script>
+  <script src="js/ui/inputs-menu.js"></script>
+  <script src="js/ui/hdmi-view.js"></script>
+  <script src="js/ui/app-sim.js"></script>
+  <script src="js/ui/settings.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

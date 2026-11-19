@@ -1,0 +1,22 @@
+{
+  "name": "glass-tv",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tela inicial minimalista para TVs Samsung com Tizen, com dock de apps e acesso às entradas HDMI.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.10"
+  },
+  "scripts": {
+    "preview": "open app/index.html",
+    "test": "node --test tests/unit/",
+    "test:e2e": "node --experimental-websocket tools/e2e.mjs",
+    "test:all": "npm test && npm run test:e2e",
+    "wallpapers:generate": "node tools/wallpapers.mjs generate",
+    "wallpapers:add": "node tools/wallpapers.mjs add",
+    "wallpapers:manifest": "node tools/wallpapers.mjs manifest",
+    "icon": "node tools/wallpapers.mjs icon",
+    "tizen:check": "sh tools/tizen.sh check",
+    "tizen:package": "sh tools/tizen.sh package"
+  }
+}

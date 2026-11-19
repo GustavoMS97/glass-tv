@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<!--
+  Gerador de wallpapers originais do Glass TV (paisagens procedurais).
+  Não faz parte do app instalado na TV. Uso: tools/wallpapers.mjs generate
+  Parâmetros: ?scene=<id>&w=1920&h=1080&seed=<n>
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Glass TV — gerador de wallpapers</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+'use strict';
+const params = new URLSearchParams(location.search);
+const W = +params.get('w') || 1920;
+const H = +params.get('h') || 1080;
+const SCENE = params.get('scene') || 'alvorada';
+const canvas = document.getElementById('c');
+canvas.width = W;
+canvas.height = H;
+const ctx = canvas.getContext('2d');
+
+// ------------------------------------------------------------ utilidades
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const seedBase = +params.get('seed') || [...SCENE].reduce((s, c) => s * 31 + c.charCodeAt(0), 7);
+let rand = mulberry32(seedBase);
+
+function makeNoise(r) {
+  const size = 4096;
+  const v = new Float32Array(size);
+  for (let i = 0; i < size; i++) v[i] = r();
+  return (x) => {
+    const xi = Math.floor(x);
+    const f = x - xi;
+    const a = v[((xi % size) + size) % size];
+    const b = v[(((xi + 1) % size) + size) % size];
+    const t = f * f * (3 - 2 * f);
+    return a + (b - a) * t;
+  };
+}
+function fbm(noise, x, octaves) {
+  let sum = 0, amp = 1, freq = 1, norm = 0;
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise(x * freq + o * 97.13);
+    norm += amp; amp *= 0.5; freq *= 2.03;
+  }
+  return sum / norm;
+}
+function hex(c) {
+  const n = parseInt(c.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function mix(c1, c2, t) {
+  const a = hex(c1), b = hex(c2);
+  return 'rgb(' + a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(',') + ')';
+}
+function rgba(c, alpha) {
+  const [r, g, b] = hex(c);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function sky(stops, y0 = 0, y1 = H) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1);
+  stops.forEach(([o, c]) => g.addColorStop(o, c));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+function glow(x, y, r, color, alpha, op = 'screen') {
+  ctx.save();
+  ctx.globalCompositeOperation = op;
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, rgba(color, alpha));
+  g.addColorStop(0.35, rgba(color, alpha * 0.45));
+  g.addColorStop(1, rgba(color, 0));
+  ctx.fillStyle = g;
+  ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  ctx.restore();
+}
+function band(y0, y1, color, a0, a1) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, rgba(color, a0));
+  g.addColorStop(1, rgba(color, a1));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, y0, W, y1 - y0);
+}
+
+/** Linha de cume: array de y para x = 0..W. */
+function ridge({ base, amp, freq, octaves = 5, ridged = 0, seed }) {
+  const noise = makeNoise(mulberry32(seed));
+  const pts = [];
+  for (let x = 0; x <= W + 4; x += 3) {
+    const n = fbm(noise, x * freq / W * 8, octaves);
+    let v = n;
+    if (ridged) {
+      const r = 1 - Math.abs(n * 2 - 1);
+      v = n * (1 - ridged) + r * r * ridged;
+    }
+    pts.push([x, base - amp * v]);
+  }
+  return pts;
+}
+function fillRidge(pts, top, bottom) {
+  let minY = H;
+  pts.forEach(([, y]) => { if (y < minY) minY = y; });
+  const g = ctx.createLinearGradient(0, minY, 0, H);
+  g.addColorStop(0, top);
+  g.addColorStop(1, bottom || top);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  pts.forEach(([x, y]) => ctx.lineTo(x, y));
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
+}
+function rimLight(pts, color, alpha, width = 1.5) {
+  ctx.save();
+  ctx.strokeStyle = rgba(color, alpha);
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.stroke();
+  ctx.restore();
+}
+function yAt(pts, x) {
+  const i = Math.max(0, Math.min(pts.length - 1, Math.round(x / 3)));
+  return pts[i][1];
+}
+function pine(x, yBase, h, color) {
+  const w = h * 0.34;
+  const tiers = 5;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x, yBase - h);
+  for (let i = 1; i <= tiers; i++) {
+    const y = yBase - h + (h * 0.86 * i) / tiers;
+    const wi = (w * i) / tiers;
+    ctx.lineTo(x + wi, y);
+    if (i < tiers) ctx.lineTo(x + wi * 0.42, y - h * 0.035);
+  }
+  ctx.lineTo(x + w * 0.08, yBase - h * 0.14);
+  ctx.lineTo(x + w * 0.08, yBase + 4);
+  ctx.lineTo(x - w * 0.08, yBase + 4);
+  ctx.lineTo(x - w * 0.08, yBase - h * 0.14);
+  for (let i = tiers; i >= 1; i--) {
+    const y = yBase - h + (h * 0.86 * i) / tiers;
+    const wi = (w * i) / tiers;
+    if (i < tiers) ctx.lineTo(x - wi * 0.42, y - h * 0.035);
+    ctx.lineTo(x - wi, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+function forest(pts, { spacing, hMin, hMax, color, sink = 0.15 }) {
+  let x = -20;
+  while (x < W + 20) {
+    const h = hMin + rand() * (hMax - hMin);
+    pine(x, yAt(pts, Math.max(0, Math.min(W, x))) + h * sink, h, color);
+    x += spacing * (0.45 + rand() * 0.9);
+  }
+}
+function stars(count, yMax, maxAlpha = 0.9) {
+  for (let i = 0; i < count; i++) {
+    const x = rand() * W;
+    const y = Math.pow(rand(), 1.4) * yMax;
+    const r = rand() < 0.94 ? 0.6 + rand() * 0.9 : 1.4 + rand() * 1.2;
+    const a = (0.25 + rand() * 0.75) * maxAlpha * (1 - y / yMax * 0.7);
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    if (r > 1.6) glow(x, y, r * 7, '#cfe0ff', a * 0.35);
+  }
+}
+function reflect(horizon, darken, tint) {
+  // Espelha a parte de cima na água, com ondulação horizontal discreta.
+  const src = document.createElement('canvas');
+  src.width = W; src.height = H;
+  src.getContext('2d').drawImage(canvas, 0, 0);
+  const depth = H - horizon;
+  for (let y = 0; y < depth; y += 2) {
+    const sy = horizon - y - 2;
+    if (sy < 0) break;
+    const wave = Math.sin(y * 0.09 + rand() * 0.6) * (1 + y / depth * 9) * 0.9;
+    ctx.drawImage(src, 0, sy, W, 2, wave, horizon + y, W, 2);
+  }
+  const g = ctx.createLinearGradient(0, horizon, 0, H);
+  g.addColorStop(0, rgba(tint, darken[0]));
+  g.addColorStop(1, rgba(tint, darken[1]));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, horizon, W, depth);
+  // Brilhos finos na superfície.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let i = 0; i < 240; i++) {
+    const y = horizon + Math.pow(rand(), 1.6) * depth;
+    const len = 20 + rand() * 160 * (1 + (y - horizon) / depth);
+    const x = rand() * W;
+    ctx.fillStyle = `rgba(255,255,255,${0.015 + rand() * 0.04})`;
+    ctx.fillRect(x, y, len, 1);
+  }
+  ctx.restore();
+}
+function vignette(strength = 0.45) {
+  const g = ctx.createRadialGradient(W / 2, H * 0.48, H * 0.35, W / 2, H * 0.5, H * 1.05);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,0,0,${strength})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+function grain(amount = 5) {
+  // Ruído leve: evita "degraus" (banding) nos degradês após a compressão JPEG.
+  const img = ctx.getImageData(0, 0, W, H);
+  const d = img.data;
+  const r = mulberry32(seedBase ^ 0x9e3779b9);
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (r() - 0.5) * amount;
+    d[i] += n; d[i + 1] += n; d[i + 2] += n;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+function blurred(draw, radius, op = 'screen', alpha = 1) {
+  const off = document.createElement('canvas');
+  off.width = W; off.height = H;
+  const octx = off.getContext('2d');
+  draw(octx);
+  ctx.save();
+  ctx.globalCompositeOperation = op;
+  ctx.globalAlpha = alpha;
+  ctx.filter = `blur(${radius}px)`;
+  ctx.drawImage(off, 0, 0);
+  ctx.restore();
+}
+
+// ------------------------------------------------------------ cenas
+const scenes = {};
+
+scenes.alvorada = function () {
+  sky([[0, '#1f2b55'], [0.3, '#4f5489'], [0.52, '#b07f98'], [0.66, '#eba98c'], [0.78, '#f7cfa4'], [1, '#f9dcb4']], 0, H * 0.82);
+  glow(W * 0.66, H * 0.6, W * 0.55, '#ffd29a', 0.5);
+  glow(W * 0.66, H * 0.6, W * 0.12, '#fff1d2', 0.7);
+  const layers = [
+    { base: 0.56, amp: 0.15, freq: 1.4, ridged: 0.8, top: '#c9a0ad', bot: '#d9b2b0' },
+    { base: 0.62, amp: 0.15, freq: 1.2, ridged: 0.75, top: '#a77f9a', bot: '#b88f9f' },
+    { base: 0.69, amp: 0.14, freq: 1.0, ridged: 0.6, top: '#7d6185', bot: '#8a6a8a' },
+    { base: 0.76, amp: 0.13, freq: 0.8, ridged: 0.5, top: '#57466b', bot: '#5a4569' },
+    { base: 0.85, amp: 0.12, freq: 0.6, ridged: 0.35, top: '#3a2f4f', bot: '#33283f' },
+    { base: 0.97, amp: 0.13, freq: 0.45, ridged: 0.2, top: '#231c31', bot: '#17121f' }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: l.freq, ridged: l.ridged, seed: seedBase + i * 13 });
+    fillRidge(pts, l.top, l.bot);
+    if (i < 3) rimLight(pts, '#ffe0c0', 0.18 - i * 0.04);
+    if (i < layers.length - 1) band(H * (l.base - 0.02), H * (l.base + 0.12), '#f3c3a6', 0.0, 0.28 - i * 0.04);
+  });
+  vignette(0.42);
+  grain(6);
+};
+
+scenes.fiorde = function () {
+  const horizon = H * 0.6;
+  sky([[0, '#02050d'], [0.35, '#081428'], [0.75, '#16304f'], [1, '#2a4b6e']], 0, horizon);
+  stars(900, horizon * 0.95);
+  glow(W * 0.3, H * 0.19, 320, '#9fb8e6', 0.22);
+  ctx.fillStyle = '#eef2ff';
+  ctx.beginPath(); ctx.arc(W * 0.3, H * 0.19, 30, 0, Math.PI * 2); ctx.fill();
+  glow(W * 0.3, H * 0.19, 70, '#ffffff', 0.35);
+  const layers = [
+    { base: 0.5, amp: 0.2, freq: 1.1, ridged: 0.9, top: '#2f4a6d', bot: '#3a587c' },
+    { base: 0.56, amp: 0.22, freq: 0.85, ridged: 0.85, top: '#1b2f4b', bot: '#243b5a' },
+    { base: 0.61, amp: 0.25, freq: 0.6, ridged: 0.7, top: '#0b1627', bot: '#0f1d33' }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: l.freq, ridged: l.ridged, seed: seedBase + i * 17 });
+    fillRidge(pts, l.top, l.bot);
+    rimLight(pts, '#b9cff5', 0.12 - i * 0.03);
+    band(H * (l.base - 0.05), H * (l.base + 0.02), '#4d6f99', 0, 0.22);
+  });
+  ctx.fillStyle = '#0a1322';
+  ctx.fillRect(0, horizon - 2, W, H - horizon + 2);
+  reflect(horizon, [0.35, 0.82], '#040912');
+  // Rastro da lua na água.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  for (let y = horizon + 6; y < H; y += 3) {
+    const t = (y - horizon) / (H - horizon);
+    const w = 20 + t * 140 * rand();
+    ctx.fillStyle = `rgba(210,225,255,${(0.16 - t * 0.12) * rand()})`;
+    ctx.fillRect(W * 0.3 - w / 2 + (rand() - 0.5) * 30 * t, y, w, 1.5);
+  }
+  ctx.restore();
+  vignette(0.55);
+  grain(5);
+};
+
+scenes.floresta = function () {
+  sky([[0, '#8ea7a4'], [0.45, '#c5d3cd'], [0.7, '#e3e9e2'], [1, '#e8ece4']], 0, H * 0.7);
+  glow(W * 0.42, H * 0.28, W * 0.42, '#fffbe8', 0.45);
+  const layers = [
+    { base: 0.5, amp: 0.1, color: '#a6b8b1', tree: [14, 26, 52] },
+    { base: 0.58, amp: 0.1, color: '#869d97', tree: [16, 36, 70] },
+    { base: 0.67, amp: 0.1, color: '#62807b', tree: [18, 52, 96] },
+    { base: 0.77, amp: 0.1, color: '#3e5c58', tree: [22, 80, 140] },
+    { base: 0.9, amp: 0.1, color: '#213936', tree: [28, 120, 210] },
+    { base: 1.04, amp: 0.08, color: '#0d1a19', tree: [40, 220, 380] }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: 0.7, octaves: 4, seed: seedBase + i * 11 });
+    fillRidge(pts, l.color);
+    forest(pts, { spacing: l.tree[0], hMin: l.tree[1], hMax: l.tree[2], color: l.color, sink: 0.12 });
+    if (i < layers.length - 1) band(H * (l.base - 0.16), H * (l.base + 0.06), '#e6ece5', 0, 0.42 - i * 0.04);
+  });
+  // Raios de luz suaves atravessando a neblina.
+  blurred((o) => {
+    o.fillStyle = 'rgba(255,250,230,0.12)';
+    for (let i = 0; i < 6; i++) {
+      const x = W * (0.25 + i * 0.07);
+      o.beginPath();
+      o.moveTo(x, 0); o.lineTo(x + 60, 0); o.lineTo(x + 420, H); o.lineTo(x + 260, H);
+      o.fill();
+    }
+  }, 40, 'screen', 0.8);
+  vignette(0.38);
+  grain(5);
+};
+
+scenes.dunas = function () {
+  sky([[0, '#2b2d5c'], [0.32, '#7a4f78'], [0.55, '#d77d63'], [0.72, '#f3ac70'], [0.86, '#ffd590'], [1, '#ffe2a8']], 0, H * 0.62);
+  glow(W * 0.24, H * 0.56, W * 0.5, '#ffc785', 0.55);
+  glow(W * 0.24, H * 0.56, 90, '#fff4d8', 0.9);
+  const layers = [
+    { base: 0.6, amp: 0.05, freq: 0.5, light: '#e7a876', dark: '#c27b62' },
+    { base: 0.67, amp: 0.08, freq: 0.42, light: '#de935f', dark: '#9e5a4f' },
+    { base: 0.76, amp: 0.11, freq: 0.36, light: '#cf7a4c', dark: '#7a3f3f' },
+    { base: 0.88, amp: 0.15, freq: 0.3, light: '#b5603b', dark: '#562a33' },
+    { base: 1.02, amp: 0.18, freq: 0.24, light: '#8c4430', dark: '#2e1620' }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: l.freq, octaves: 3, ridged: 0.15, seed: seedBase + i * 23 });
+    fillRidge(pts, l.light, l.dark);
+    rimLight(pts, '#ffe2b8', 0.35 - i * 0.05, 2);
+    if (i < layers.length - 1) band(H * (l.base - 0.03), H * (l.base + 0.05), '#f7c48c', 0, 0.3 - i * 0.05);
+  });
+  vignette(0.45);
+  grain(6);
+};
+
+scenes.aurora = function () {
+  const horizon = H * 0.66;
+  sky([[0, '#02050d'], [0.45, '#061626'], [0.85, '#0e3442'], [1, '#174557']], 0, horizon);
+  stars(700, horizon);
+  const curtains = [
+    { y: 0.38, amp: 0.08, len: 0.32, hue: '#3df5ae', a: 0.2, ph: 0.2 },
+    { y: 0.31, amp: 0.07, len: 0.28, hue: '#2fdcca', a: 0.15, ph: 1.7 },
+    { y: 0.44, amp: 0.05, len: 0.2, hue: '#86f9a6', a: 0.12, ph: 3.1 }
+  ];
+  const drawAurora = (o) => {
+    o.globalCompositeOperation = 'lighter';
+    curtains.forEach((c) => {
+      for (let x = -40; x < W + 40; x += 3) {
+        const t = x / W;
+        const y = H * (c.y + Math.sin(t * 5.2 + c.ph) * c.amp + Math.sin(t * 13 + c.ph * 2) * c.amp * 0.25);
+        const len = H * c.len * (0.45 + 0.55 * Math.sin(t * 9 + c.ph * 3) ** 2);
+        const g = o.createLinearGradient(0, y - len, 0, y + 30);
+        g.addColorStop(0, 'rgba(120,80,255,0)');
+        g.addColorStop(0.5, rgba('#7a6cff', c.a * 0.3));
+        g.addColorStop(0.88, rgba(c.hue, c.a));
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        o.fillStyle = g;
+        o.fillRect(x, y - len, 4, len + 30);
+      }
+    });
+  };
+  blurred(drawAurora, 44, 'screen', 0.9);
+  blurred(drawAurora, 7, 'screen', 1);
+  const layers = [
+    { base: 0.6, amp: 0.16, freq: 1.0, ridged: 0.85, top: '#163444', bot: '#1b3b4c' },
+    { base: 0.67, amp: 0.15, freq: 0.7, ridged: 0.6, top: '#0a1a24', bot: '#0d202b' }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: l.freq, ridged: l.ridged, seed: seedBase + i * 29 });
+    fillRidge(pts, l.top, l.bot);
+    rimLight(pts, '#7ff5c4', 0.16 - i * 0.06);
+  });
+  ctx.fillStyle = '#08151d';
+  ctx.fillRect(0, horizon - 1, W, H - horizon + 1);
+  reflect(horizon, [0.3, 0.78], '#02070b');
+  const shore = ridge({ base: H * 1.0, amp: H * 0.05, freq: 0.5, octaves: 3, seed: seedBase + 99 });
+  fillRidge(shore, '#02060a');
+  forest(shore, { spacing: 60, hMin: 90, hMax: 230, color: '#02060a', sink: 0.1 });
+  vignette(0.45);
+  grain(5);
+};
+
+scenes.lago = function () {
+  const horizon = H * 0.56;
+  sky([[0, '#1f1840'], [0.3, '#4c2f63'], [0.58, '#a24f6f'], [0.8, '#e88466'], [1, '#f7b77a']], 0, horizon);
+  glow(W * 0.58, horizon, W * 0.5, '#ffb37a', 0.5);
+  glow(W * 0.58, horizon, 160, '#ffe6c2', 0.55);
+  // Nuvens finas e alongadas.
+  blurred((o) => {
+    for (let i = 0; i < 14; i++) {
+      const y = H * (0.12 + rand() * 0.3);
+      const x = rand() * W;
+      const w = 300 + rand() * 700;
+      o.fillStyle = `rgba(255,170,150,${0.05 + rand() * 0.08})`;
+      o.fillRect(x - w / 2, y, w, 6 + rand() * 14);
+    }
+  }, 10, 'screen', 1);
+  const layers = [
+    { base: 0.5, amp: 0.14, freq: 1.1, ridged: 0.8, top: '#7a4b78', bot: '#8a5679' },
+    { base: 0.54, amp: 0.15, freq: 0.8, ridged: 0.7, top: '#4d305c', bot: '#583565' },
+    { base: 0.565, amp: 0.1, freq: 0.6, ridged: 0.4, top: '#261a36', bot: '#2c1e3c' }
+  ];
+  layers.forEach((l, i) => {
+    const pts = ridge({ base: H * l.base, amp: H * l.amp, freq: l.freq, ridged: l.ridged, seed: seedBase + i * 31 });
+    fillRidge(pts, l.top, l.bot);
+    rimLight(pts, '#ffc7a0', 0.16 - i * 0.05);
+    band(H * (l.base - 0.04), H * (l.base + 0.01), '#e9937a', 0, 0.2);
+  });
+  ctx.fillStyle = '#2a1d3a';
+  ctx.fillRect(0, horizon - 1, W, H - horizon + 1);
+  reflect(horizon, [0.25, 0.75], '#120b1c');
+  const shore = ridge({ base: H * 1.02, amp: H * 0.06, freq: 0.4, octaves: 3, seed: seedBase + 77 });
+  fillRidge(shore, '#0b0712');
+  const left = shore.map(([x, y]) => [x, y + (x > W * 0.3 ? H : 0)]);
+  forest(left, { spacing: 44, hMin: 120, hMax: 300, color: '#0b0712', sink: 0.08 });
+  vignette(0.5);
+  grain(6);
+};
+
+(scenes[SCENE] || scenes.alvorada)();
+document.title = 'ready:' + SCENE;
+</script>
+</body>
+</html>

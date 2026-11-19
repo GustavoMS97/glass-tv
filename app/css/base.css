@@ -1,0 +1,206 @@
+/* Glass TV — tokens de design e base.
+   Alvo: Chromium M94 (Tizen 7.0). Sem :has(), color-mix(), nesting ou
+   container queries. Tela lógica fixa de 1920x1080. */
+
+:root {
+  --font: "SamsungOne", "Samsung One", "SamsungOneUI", -apple-system, BlinkMacSystemFont,
+    "SF Pro Display", "Helvetica Neue", "Segoe UI", Roboto, Arial, sans-serif;
+
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.72);
+  --text-3: rgba(255, 255, 255, 0.5);
+  --ink: #0c0f16; /* texto sobre superfícies claras em foco */
+  --ink-2: rgba(12, 15, 22, 0.62);
+
+  --glass-bg: rgba(255, 255, 255, 0.13);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.3);
+  --glass-blur: 44px;
+  --glass-lite-bg: rgba(26, 28, 36, 0.8);
+  --scrim: rgba(8, 10, 16, 0.42);
+  --scrim-lite: rgba(8, 10, 16, 0.8);
+
+  --focus-surface: rgba(255, 255, 255, 0.96);
+  --ring: 0 0 0 4px rgba(255, 255, 255, 0.96);
+  --shadow-1: 0 18px 48px rgba(0, 0, 0, 0.32);
+  --shadow-focus: 0 28px 56px rgba(0, 0, 0, 0.5);
+
+  --ok: #4ade80;
+  --warn: #fbbf6b;
+  --danger: #ff8a80;
+  --accent: #8cc8ff;
+
+  --safe-x: 112px;
+  --safe-y: 72px;
+
+  --dur-fast: 160ms;
+  --dur: 280ms;
+  --dur-slow: 700ms;
+  --dur-fade: 1400ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --focus-scale: 1.1;
+  --focus-lift: -8px;
+}
+
+:root[data-motion="reduced"] {
+  --dur-fast: 90ms;
+  --dur: 140ms;
+  --dur-slow: 300ms;
+  --dur-fade: 500ms;
+  --focus-scale: 1.04;
+  --focus-lift: -2px;
+}
+
+:root[data-motion="off"] {
+  --dur-fast: 0ms;
+  --dur: 0ms;
+  --dur-slow: 0ms;
+  --dur-fade: 0ms;
+  --focus-scale: 1;
+  --focus-lift: 0px;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+body {
+  font-family: var(--font);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+h1, h2, h3, p { margin: 0; }
+
+svg { display: block; }
+
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: #0b0d12;
+  transform-origin: 0 0;
+  transition: opacity 600ms ease;
+}
+
+body.is-booting .stage { opacity: 0; }
+
+/* ---- Vidro fosco -------------------------------------------------------- */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-1), inset 0 1px 0 var(--glass-highlight);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+}
+
+:root[data-glass="lite"] .glass {
+  background: var(--glass-lite-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  -webkit-backdrop-filter: blur(30px) saturate(140%);
+  backdrop-filter: blur(30px) saturate(140%);
+}
+
+:root[data-glass="lite"] .scrim {
+  background: var(--scrim-lite);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ---- Camadas (telas sobrepostas) --------------------------------------- */
+.layer {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease), visibility 0s linear var(--dur);
+}
+
+.layer.is-open {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
+}
+
+/* ---- Dicas de teclas ---------------------------------------------------- */
+.hints {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 56px;
+  display: flex;
+  justify-content: center;
+  gap: 44px;
+  font-size: 24px;
+  color: var(--text-2);
+}
+
+.hints > span { display: flex; align-items: center; }
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 38px;
+  padding: 0 12px;
+  margin-right: 12px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.icon { display: inline-flex; }
+.icon svg { width: 100%; height: 100%; }
+
+/* ---- Selo da prévia (somente fora da TV) -------------------------------- */
+.preview-badge {
+  display: none;
+  position: absolute;
+  right: 32px;
+  bottom: 20px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+  z-index: 50;
+}
+
+.is-preview .preview-badge { display: block; }
+
+/* ---- Janela de TV (HDMI) ativa: a interface sai da frente --------------- */
+html.tv-window-active,
+html.tv-window-active body,
+html.tv-window-active .stage {
+  background: transparent;
+}
+
+html.tv-window-active .wallpaper,
+html.tv-window-active .home,
+html.tv-window-active .inputs,
+html.tv-window-active .preview-badge {
+  visibility: hidden;
+}

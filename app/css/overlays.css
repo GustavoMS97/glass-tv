@@ -1,0 +1,292 @@
+/* Menu de Entradas, visualização HDMI, simulação de app, protetor e avisos. */
+
+/* ---- Entradas ----------------------------------------------------------- */
+.inputs__content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 40px;
+  transform: translate3d(0, 28px, 0) scale(0.98);
+  transition: transform var(--dur-slow) var(--ease);
+}
+
+.inputs.is-open .inputs__content { transform: none; }
+
+.inputs__title {
+  margin-bottom: 64px;
+  font-size: 54px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.inputs__cards {
+  display: flex;
+  gap: 44px;
+}
+
+.input-card {
+  position: relative;
+  width: 330px;
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 42px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: var(--text);
+  transition: transform var(--dur) var(--ease), background var(--dur) var(--ease),
+    color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+
+.input-card .icon {
+  width: 104px;
+  height: 104px;
+  margin-bottom: 26px;
+  opacity: 0.92;
+}
+
+.input-card__name {
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.input-card__status {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  margin-top: 12px;
+  font-size: 24px;
+  color: var(--text-2);
+}
+
+.input-card__dot {
+  width: 12px;
+  height: 12px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.input-card__status.is-connected .input-card__dot { background: var(--ok); }
+.input-card__status:empty { visibility: hidden; }
+
+.input-card.is-focused {
+  transform: scale(1.07);
+  background: var(--focus-surface);
+  color: var(--ink);
+  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.45);
+}
+
+.input-card.is-focused .input-card__status { color: var(--ink-2); }
+.input-card.is-pending { animation: tile-pulse 900ms ease-in-out infinite; }
+
+.inputs__note {
+  min-height: 34px;
+  margin-top: 48px;
+  font-size: 24px;
+  color: var(--text-2);
+}
+
+/* ---- HDMI ---------------------------------------------------------------- */
+.hdmi { background: #000; }
+
+/* Na TV a imagem vem da janela de TV (plano de vídeo): fundo transparente. */
+html.tv-window-active .hdmi { background: transparent; }
+html.tv-window-active .hdmi__sim { display: none; }
+
+.hdmi__sim {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(70, 110, 190, 0.35), rgba(0, 0, 0, 0) 60%),
+    linear-gradient(180deg, #0a0f1c 0%, #04060b 100%);
+}
+
+.hdmi__sim-bars {
+  display: flex;
+  width: 720px;
+  height: 18px;
+  margin-bottom: 56px;
+  border-radius: 9px;
+  overflow: hidden;
+  opacity: 0.85;
+}
+
+.hdmi__sim-bars span { flex: 1; }
+
+.hdmi__sim-name {
+  font-size: 120px;
+  font-weight: 200;
+  letter-spacing: -2px;
+}
+
+.hdmi__sim-text {
+  max-width: 980px;
+  margin-top: 24px;
+  text-align: center;
+  font-size: 28px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.hdmi__osd {
+  position: absolute;
+  left: var(--safe-x);
+  top: 64px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 30px;
+  border-radius: 999px;
+  font-size: 28px;
+  font-weight: 600;
+  opacity: 0;
+  transform: translate3d(0, -12px, 0);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.hdmi__osd .icon { width: 34px; height: 34px; }
+.hdmi__osd small { font-size: 22px; font-weight: 400; color: var(--text-2); }
+.hdmi__osd.is-visible { opacity: 1; transform: none; }
+
+/* ---- Simulação de app (somente prévia) ---------------------------------- */
+.appsim {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--c2, #222) 0%, var(--c1, #111) 55%, #050608 100%);
+}
+
+.appsim__name {
+  font-size: 110px;
+  font-weight: 700;
+  letter-spacing: -2px;
+}
+
+.appsim__text {
+  margin-top: 28px;
+  max-width: 1000px;
+  text-align: center;
+  font-size: 28px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.appsim__id {
+  margin-top: 18px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ---- Protetor de tela --------------------------------------------------- */
+.screensaver {
+  z-index: 80; /* acima de avisos e de qualquer outra camada */
+  background: #000;
+  transition: opacity 1200ms ease, visibility 0s linear 1200ms;
+}
+
+.screensaver.is-open { transition: opacity 1200ms ease, visibility 0s; }
+
+.ss__layer {
+  position: absolute;
+  inset: -2%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0;
+  transition: opacity 2600ms ease;
+}
+
+.ss__layer.is-visible { opacity: 1; }
+
+.screensaver.is-moving .ss__layer.is-visible {
+  animation: ss-drift 70s linear infinite alternate;
+}
+
+@keyframes ss-drift {
+  from { transform: scale(1) translate3d(0, 0, 0); }
+  to { transform: scale(1.08) translate3d(-1.6%, 1%, 0); }
+}
+
+.ss__clock {
+  position: absolute;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.45);
+  transition: opacity 1200ms ease;
+}
+
+.ss__clock.is-hidden { display: none; }
+.ss__clock.is-fading { opacity: 0; }
+
+.ss__clock.pos-0 { left: 112px; bottom: 96px; }
+.ss__clock.pos-1 { right: 112px; bottom: 96px; text-align: right; }
+.ss__clock.pos-2 { right: 112px; top: 88px; text-align: right; }
+.ss__clock.pos-3 { left: 112px; top: 88px; }
+
+.ss__time {
+  font-size: 88px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -1.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ss__date {
+  margin-top: 12px;
+  font-size: 28px;
+  opacity: 0.85;
+}
+
+/* ---- Avisos (toasts) ---------------------------------------------------- */
+.toasts {
+  position: absolute;
+  right: var(--safe-x);
+  top: 44px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 16px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  max-width: 860px;
+  padding: 22px 34px;
+  border-radius: 30px;
+  opacity: 0;
+  transform: translate3d(0, -16px, 0);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+
+.toast.is-in { opacity: 1; transform: none; }
+
+.toast__dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.toast--warn .toast__dot { background: var(--warn); }
+.toast--error .toast__dot { background: var(--danger); }
+.toast--ok .toast__dot { background: var(--ok); }
+
+.toast__text { font-size: 28px; font-weight: 600; line-height: 1.3; }
+.toast__detail { margin-top: 6px; font-size: 23px; font-weight: 400; color: var(--text-2); line-height: 1.35; }
