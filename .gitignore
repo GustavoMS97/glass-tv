@@ -34,6 +34,9 @@ logs/
 dumps/
 *.log
 
+# Configuração local do editor (a extensão Tizen do VS Code grava caminhos absolutos aqui)
+.vscode/settings.json
+
 # Saída de testes locais (screenshots da prévia)
 test-results/
 

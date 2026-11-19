@@ -16,11 +16,12 @@ inteiramente pelo controle remoto.
 |---|---|
 | 1. Pesquisa e arquitetura | ✅ [docs/01-viabilidade.md](docs/01-viabilidade.md) |
 | 2. Interface local (prévia no Mac) | ✅ completa e testada (38 testes unitários + 24 cenários E2E) |
-| 3. Compatibilidade Tizen | 🟡 código, `config.xml`, ícone e script de pacote prontos; **não testados na TV** |
-| 4. Instalação na Samsung | ⏸ aguardando sua aprovação — [docs/04-instalacao-na-tv.md](docs/04-instalacao-na-tv.md) |
-| 5. Ajustes finais | ⏳ depende dos testes no aparelho |
+| 3. Compatibilidade Tizen | ✅ pacote assinado com certificado Samsung (Tizen SDK via VS Code) |
+| 4. Instalação na Samsung | ✅ instalado e testado na TV em 19/11/2026 — [docs/04-instalacao-na-tv.md](docs/04-instalacao-na-tv.md) |
+| 5. Ajustes finais | ⏳ próximos passos |
 
-> **Nenhuma funcionalidade foi verificada na TV real ainda.** Na prévia, a TV é simulada.
+> Na prévia do Mac, a TV é simulada. Para atualizar o app na TV:
+> `sh tools/tizen.sh package && sh tools/tizen.sh install`.
 
 ### HDMI — o que é possível
 

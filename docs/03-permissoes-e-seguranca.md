@@ -66,7 +66,11 @@ A interface original da Samsung permanece intacta: Home, Source e Smart Hub cont
 |---|---|---|
 | App na TV | nenhuma biblioteca | — |
 | Testes/ferramentas no Mac | Node ≥ 20.10, Google Chrome, `sips` (nativo do macOS), `git` (varredura de privacidade) | nenhum pacote npm |
-| Empacotar/instalar | Tizen Studio + TV Extension + Samsung Certificate Extension (oficiais da Samsung) | **ainda não instalado — requer sua aprovação** (Etapa 3/4) |
+| Empacotar/instalar | Tizen SDK via extensão oficial do VS Code (`tizen.vscode-tizen-csharp`) | instalado em `~/.tizen-extension-platform`; pacotes conferidos contra o SHA-256 oficial (a extensão baixa com `curl -k`) |
+
+Durante o uso, o servidor local da extensão escuta só em `127.0.0.1` (com token); o servidor do
+`sdb` escuta em todas as interfaces enquanto está ligado, por isso `tools/tizen.sh` o encerra
+após cada ação na TV.
 
 Fontes de fonte tipográfica: só as do sistema (na TV, a fonte Samsung; no Mac, SF). Nenhuma
 fonte ou imagem externa é baixada.

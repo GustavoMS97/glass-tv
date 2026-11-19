@@ -1,66 +1,86 @@
-# Instalação na TV (Etapas 3 e 4)
+# Instalação, atualização e remoção na TV
 
-> **Nada desta página foi executado ainda.** Cada passo que instala software no Mac ou toca na TV
-> depende da sua aprovação explícita. O script `tools/tizen.sh` pede confirmação antes de qualquer
-> comando que acesse a TV.
+Caminho usado e validado em 19/11/2026 (Mac Apple Silicon → TV Samsung 2023 em modo desenvolvedor).
+Cada passo que toca na TV pede confirmação no `tools/tizen.sh`.
 
-## 0. Pré-requisitos no Mac (aprovação necessária)
+## 0. Ferramentas no Mac (uma vez)
 
-1. **Tizen Studio** — baixar somente do site oficial (developer.tizen.org / developer.samsung.com).
-2. No *Package Manager* do Tizen Studio:
-   - **TV Extensions** compatível com 2023 (a tabela de grupos indica "TV Extension 7.0 or higher");
-   - **Samsung Certificate Extension**.
-3. Conta gratuita no Samsung Developers (necessária para gerar o certificado).
+O **Tizen Studio está sendo descontinuado** pela Samsung; o substituto oficial é o **Tizen SDK**
+via extensão do VS Code.
 
-## 1. Modo desenvolvedor na TV (procedimento oficial)
+1. No VS Code, instale a extensão **Tizen Extension** (`tizen.vscode-tizen-csharp`, publicada pela
+   Tizen). Recomendado: em Configurações, defina `tizen.v2.analytics.log` como **Disable** (a
+   extensão vem com o envio de logs de uso ligado).
+2. Abra esta pasta no VS Code. A extensão ativa sozinha (o projeto tem `config.xml`), baixa o
+   servidor dela e o SDK (~1,5 GB em `~/.tizen-extension-platform`, perfis **web** e **tv-web**,
+   incluindo `sdb`, Java embutido e as extensões de TV Samsung).
+   - Se o download travar (o servidor da Tizen oscila muito), recarregue a janela:
+     `Cmd+Shift+P` › **Developer: Reload Window**.
+3. `Cmd+Shift+P` › **Tizen: Install Tizen CLI** (instala a linha de comando `tizen`, usada pelo
+   script para assinar e instalar).
 
-1. Na TV, abra o **Smart Hub** › painel **Apps** › role até **Configurações de apps**.
-2. Digite **12345** com o controle (ou o teclado numérico na tela).
-3. Ligue **Developer mode**, informe o **IP do Mac** e confirme.
-4. **Reinicie a TV.** Depois, "Develop Mode" aparece no topo do painel Apps.
+> **Segurança:** o gerenciador de pacotes da extensão baixa com `curl -k` (sem verificar o
+> certificado HTTPS). Na instalação de 19/11/2026, todos os 33 pacotes foram rebaixados com HTTPS
+> verificado e conferidos contra o SHA-256 das listas oficiais: 9.907 arquivos idênticos, nenhum
+> divergente.
 
-IP do Mac: *Ajustes do Sistema › Wi‑Fi/Rede › Detalhes*. A TV e o Mac precisam estar na mesma rede.
+> **Efeitos colaterais conhecidos:** a instalação acrescenta um bloco de `export PATH` ao
+> `~/.zshrc` (não é necessário para o `tools/tizen.sh`; pode ser removido) e cria
+> `~/.tizen`, `~/.sdb` e `~/.tizen.path.config`.
 
-## 2. Certificado Samsung (autor + distribuidor)
+## 1. Modo desenvolvedor na TV
 
-1. Obtenha o **DUID** da TV ("Menu › Support › Contact Samsung › Unique Device ID", segundo a
-   documentação; o Device Manager também exibe o DUID após conectar).
-2. Tizen Studio › **Tools › Certificate Manager** › *Cancel* na migração › **+** › **Samsung** › **TV**.
-3. Crie o certificado de **autor** (faça backup — "Keep your certificates backed up in a safe location").
-4. Crie o certificado de **distribuidor** com nível de privilégio **Public** e o DUID da TV.
-5. Guarde os arquivos do certificado **fora do repositório** (ex.: `$HOME/SamsungCertificate/<perfil>`)
-   e faça backup deles. O nome do perfil e essa pasta vão no `.env` (`CERT_PROFILE`, `CERT_DIR`).
+1. Botão Home › **Apps** › na tela de Apps, digite **12345** (no controle sem números, use o botão
+   **123** para o teclado na tela).
+2. **Developer mode: On** › em **Host PC IP**, o IP do Mac › OK.
+3. **Reinicie a TV.** "Develop Mode" aparece no topo da tela de Apps.
+
+IP do Mac: *Ajustes do Sistema › Wi‑Fi › Detalhes*. Se o IP do Mac mudar, atualize-o no modo
+desenvolvedor da TV.
+
+## 2. Certificado Samsung (uma vez; vale 2 anos)
+
+1. Conecte a TV para o DUID ser preenchido sozinho: `sh tools/tizen.sh connect` (deixa a conexão
+   aberta; ao terminar o certificado, rode `sh tools/tizen.sh disconnect`).
+2. No VS Code: `Cmd+Shift+P` › **Tizen: Create Certificate** (abre dentro do VS Code) ›
+   **Samsung** › **Samsung TV Profile**.
+3. Nome do perfil (ex.: `glasstv`), autor (nome e senha — guarde a senha), login na conta Samsung
+   pelo navegador, distribuidor **Public** com o DUID da TV.
+4. Os arquivos ficam em `~/SamsungCertificate/<perfil>/`, **fora do repositório**. Faça backup.
+
+> **Atenção:** o *Certificate Manager* avulso (janela separada) cria certificados **Tizen**
+> genéricos ("Tizen Developers CA" / "Tizen Studio Public Signer"), que a TV Samsung não aceita.
+> O certificado correto mostra o autor emitido por **"Samsung VD Author CA"**.
 
 ## 3. Configurar e empacotar (não toca na TV)
 
 ```sh
-cp .env.example .env          # preencha TV_IP, CERT_PROFILE e CERT_DIR (o .env é ignorado pelo git)
-sh tools/tizen.sh check       # CLI, certificado fora do repo e privilégios
-sh tools/tizen.sh package     # cópia em build/ → dist/GlassTV.wgt assinado
+cp .env.example .env          # TV_IP, CERT_PROFILE e CERT_DIR (o .env é ignorado pelo git)
+sh tools/tizen.sh check       # SDK, CLI, certificado fora do repo e privilégios
+sh tools/tizen.sh package     # cópia filtrada em build/ → dist/GlassTV.wgt assinado
 ```
 
-## 4. Conectar e instalar (toca na TV — cada comando pede confirmação)
+## 4. Instalar e abrir (toca na TV — cada comando pede confirmação)
 
 ```sh
-sh tools/tizen.sh connect     # sdb connect <IP>:26101
-sh tools/tizen.sh install     # tizen install …
+sh tools/tizen.sh install     # instala dist/GlassTV.wgt
 sh tools/tizen.sh run         # abre a Glass TV
 ```
 
-Pela interface gráfica: **Tools › Device Manager** › *Remote Device Manager* › **+** (nome, IP,
-porta 26101) › *Connection: On*; depois clique com o botão direito no dispositivo ›
-**Permit to install applications** (necessário com certificado Samsung).
+Esses comandos conectam, executam e **encerram o servidor do `sdb`** ao terminar — enquanto roda,
+ele escuta em todas as interfaces de rede (portas 26097/26099).
 
-Erro **1010 (App install fail)**: quase sempre certificado — confira o DUID e o perfil.
+Erro **1010 (App install fail)**: quase sempre certificado — confira se é Samsung e se o DUID é o
+da TV.
 
 ## 5. Testar
 
-Copie o roteiro para a pasta ignorada `logs/` e anote lá (resultados podem conter IDs de apps e
-outros dados do aparelho, que não devem ir para o repositório):
+Copie o roteiro para a pasta ignorada `logs/` e anote lá (resultados podem conter IDs de apps):
 
 ```sh
 mkdir -p logs && cp docs/06-roteiro-de-testes-na-tv.md logs/roteiro-tv.md
 ```
+
 Ajustes › **Sobre e diagnóstico** mostra o que a TV expôs (APIs, apps detectados com IDs, fontes).
 
 ## 6. Abrir automaticamente ao ligar (opcional, na TV)
@@ -70,20 +90,30 @@ Ajustes › **Sobre e diagnóstico** mostra o que a TV expôs (APIs, apps detect
 3. Se existir a opção de iniciar com a tela inicial do Smart Hub, desligue-a.
 4. Desligue a TV estando na Glass TV.
 
-Funciona apenas se a TV aceitar esse comportamento para apps em modo desenvolvedor — **a
-verificar**. Para desfazer, desligue a opção.
+Depende de a TV aceitar o comportamento para apps em modo desenvolvedor. Para desfazer, desligue
+a opção.
 
-## 7. Atualizar
+## 7. Atualizar o app
 
-Gere um novo pacote e instale de novo — "The previous version of the application will uninstall
-automatically when you install the new version". A preservação das preferências na atualização
-será verificada no aparelho.
+Depois de mudar o código (e testar na prévia com `npm run test:all`):
+
+```sh
+sh tools/tizen.sh package && sh tools/tizen.sh install
+```
+
+A nova versão substitui a anterior ("The previous version of the application will uninstall
+automatically when you install the new version"). Requisitos: modo desenvolvedor ligado, IP do
+Mac igual ao configurado na TV e certificado válido (renove antes de expirar e reinstale). O
+VS Code não precisa estar aberto.
 
 ## 8. Desinstalar e reverter
 
-- Pela TV: painel **Apps** › Glass TV › **Excluir** (forma oficial), ou `sh tools/tizen.sh uninstall`.
-- Desligar o modo desenvolvedor: Apps › Configurações de apps › `12345` › **Off** › reiniciar.
-- Desligar *Autorun Last App*, se tiver ativado.
+- App: painel **Apps** da TV › Glass TV › **Excluir**, ou `sh tools/tizen.sh uninstall`.
+- Modo desenvolvedor: Apps › `12345` › **Off** › reiniciar a TV.
+- *Autorun Last App*: desligar a opção, se tiver ativado.
+- Mac: desinstalar a extensão no VS Code e apagar `~/.tizen-extension-platform`, `~/.tizen`,
+  `~/.sdb`, `~/.tizen.path.config` e o bloco Tizen do `~/.zshrc`. Guarde `~/SamsungCertificate`
+  se quiser reinstalar no futuro.
 
-Observação: grandes atualizações de sistema da Samsung podem remover apps instalados em modo
-desenvolvedor; nesse caso, basta reinstalar.
+Grandes atualizações de sistema da Samsung podem remover apps instalados em modo desenvolvedor;
+nesse caso, basta reinstalar.

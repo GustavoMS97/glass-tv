@@ -128,7 +128,17 @@ hora e falha silenciosa. Hoje o pacote **não tem nenhum acesso à rede**.
 - **O que descartamos:** servidor HTTP na TV, acesso à rede, IDs fixos de apps, visualizador
   interno, API REST local, comandos `sdb shell`.
 
+## 10. Ferramentas de desenvolvimento
+
+O Tizen Studio (Eclipse/Java) está sendo descontinuado; a Samsung concentra o desenvolvimento no
+**Tizen SDK via extensão do VS Code**, com build nativa para Apple Silicon. O projeto usa a CLI
+`tizen` e o `sdb` instalados por essa extensão. Detalhes e ressalvas em
+[04-instalacao-na-tv.md](04-instalacao-na-tv.md).
+
 ## Fontes
+
+- Tizen Development Environment Focused on VSCode — https://samsungtizenos.com/blog/tizen-development-environment-focused-on-vscode/
+- Tizen Studio 6.1 Release Notes (aviso de descontinuação) — https://docs.tizen.org/application/tizen-studio/release-notes/6-1-release-notes
 
 - TV Window API — https://developer.samsung.com/smarttv/develop/api-references/tizen-web-device-api-references/tvwindow-api.html
 - SystemInfo API — https://developer.samsung.com/smarttv/develop/api-references/tizen-web-device-api-references/systeminfo-api.html

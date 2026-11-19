@@ -2,13 +2,21 @@
 # Glass TV — empacotamento e instalação com as ferramentas OFICIAIS da Samsung
 # (Tizen Studio CLI: `tizen` e `sdb`). Veja docs/04-instalacao-na-tv.md.
 #
-#   sh tools/tizen.sh check       verifica CLI, certificado e config.xml (não toca na TV)
-#   sh tools/tizen.sh package     gera dist/GlassTV.wgt assinado (não toca na TV)
-#   sh tools/tizen.sh connect     conecta à TV (sdb)              ┐
-#   sh tools/tizen.sh install     instala dist/GlassTV.wgt        │ pedem confirmação
-#   sh tools/tizen.sh run         abre o app na TV                │ e acessam/alteram
-#   sh tools/tizen.sh uninstall   remove o app da TV              ┘ a TV
+#   sh tools/tizen.sh check        verifica CLI, certificado e config.xml (não toca na TV)
+#   sh tools/tizen.sh package      gera dist/GlassTV.wgt assinado (não toca na TV)
+#   sh tools/tizen.sh connect      conecta e mantém aberto (certif.) ┐
+#   sh tools/tizen.sh install      instala dist/GlassTV.wgt          │ pedem confirmação
+#   sh tools/tizen.sh run          abre o app na TV                  │ e acessam/alteram
+#   sh tools/tizen.sh uninstall    remove o app da TV                ┘ a TV
+#   sh tools/tizen.sh disconnect   desconecta e encerra o servidor do sdb
 #
+# SDK: usa o Tizen SDK instalado pela extensão "Tizen Extension" do VS Code
+# (~/.tizen-extension-platform/server/sdktools) ou, se não existir, o Tizen Studio
+# (~/tizen-studio). Pode ser forçado com TIZEN_HOME/TIZEN_DATA no .env.
+#
+# O servidor do sdb escuta em todas as interfaces de rede enquanto roda; por
+# isso install/run/uninstall o encerram ao terminar (connect deixa aberto até
+# você rodar disconnect).
 # Tudo que é específico do aparelho vem do arquivo .env na raiz (ignorado pelo
 # git; modelo em .env.example). Certificados nunca ficam dentro do repositório.
 set -eu
@@ -40,8 +48,15 @@ load_env() {
 TV_IP=; TV_PORT=; TIZEN_HOME=; TIZEN_DATA=; CERT_PROFILE=; CERT_DIR=
 load_env
 TV_PORT=${TV_PORT:-26101}
-TIZEN_HOME=${TIZEN_HOME:-"$HOME/tizen-studio"}
-TIZEN_DATA=${TIZEN_DATA:-"$HOME/tizen-studio-data"}
+VSCODE_SDK="$HOME/.tizen-extension-platform/server/sdktools/data"
+if [ -z "$TIZEN_HOME" ]; then
+  if [ -x "$VSCODE_SDK/tools/ide/bin/tizen" ]; then TIZEN_HOME="$VSCODE_SDK"; else TIZEN_HOME="$HOME/tizen-studio"; fi
+fi
+if [ -z "$TIZEN_DATA" ]; then
+  # sdk.info informa a pasta de dados (perfis de certificado) do SDK instalado.
+  TIZEN_DATA=$(sed -n 's/^TIZEN_SDK_DATA_PATH=//p' "$TIZEN_HOME/sdk.info" 2>/dev/null)
+  TIZEN_DATA=${TIZEN_DATA:-"$HOME/tizen-studio-data"}
+fi
 PATH="$TIZEN_HOME/tools/ide/bin:$TIZEN_HOME/tools:$PATH"
 
 need_cli() {
@@ -81,15 +96,16 @@ cmd_check() {
   guard_certificates
   need_cli
   need_profile
-  echo "• tizen: $(command -v tizen)"
-  echo "• sdb:   $(command -v sdb)"
+  echo "• SDK:   $(printf '%s' "$TIZEN_HOME" | sed "s|^$HOME|~|")"
+  echo "• tizen: $(tizen version 2>/dev/null | head -n 1)"
+  echo "• sdb:   $(sdb version 2>/dev/null | head -n 1)"
   echo "• Perfil de certificado: $CERT_PROFILE"
   [ -f "$TIZEN_DATA/profile/profiles.xml" ] || echo "  (aviso: $TIZEN_DATA/profile/profiles.xml não encontrado — o perfil foi criado no Certificate Manager?)"
   [ -n "$CERT_DIR" ] && echo "• Certificados em: $CERT_DIR (fora do repositório)"
   echo "• App ID: $APP_ID"
   echo "• Privilégios declarados:"
   grep -o 'privilege name="[^"]*"' "$APP_DIR/config.xml" | sed 's/privilege name=/    /'
-  if grep -q 'privilege/internet' "$APP_DIR/config.xml"; then die "config.xml não deveria pedir acesso à internet."; fi
+  if grep -q '<tizen:privilege name="http://tizen.org/privilege/internet"' "$APP_DIR/config.xml"; then die "config.xml não deveria pedir acesso à internet."; fi
   echo "OK."
 }
 
@@ -97,41 +113,67 @@ cmd_package() {
   guard_certificates
   need_cli
   need_profile
-  # Copia o app para build/ (ignorado) para não gerar arquivos de assinatura em app/.
+  # Copia o app para build/ (ignorado), sem arquivos ocultos nem .md, para não gerar
+  # arquivos de assinatura em app/. Equivale ao `tizen build-web -e ".*" -e "*.md"`,
+  # que não está disponível na CLI instalada pela extensão do VS Code (falta o
+  # módulo web); a assinatura abaixo é feita pela própria CLI oficial.
+  OUT="$BUILD_DIR/.buildResult"
   rm -rf "$BUILD_DIR"
-  mkdir -p "$BUILD_DIR" "$DIST"
-  cp -R "$APP_DIR/." "$BUILD_DIR/"
-  tizen build-web -e ".*" -e "*.md" -- "$BUILD_DIR"
-  tizen package -t wgt -s "$CERT_PROFILE" -- "$BUILD_DIR/.buildResult"
-  WGT=$(ls -t "$BUILD_DIR/.buildResult"/*.wgt | head -n 1)
+  mkdir -p "$OUT" "$DIST"
+  rsync -a --exclude='.*' --exclude='*.md' "$APP_DIR/" "$OUT/"
+  tizen package -t wgt -s "$CERT_PROFILE" -- "$OUT"
+  WGT=$(find "$OUT" -maxdepth 1 -name '*.wgt' -print | head -n 1)
+  [ -n "$WGT" ] || die "O pacote .wgt não foi gerado."
   cp "$WGT" "$DIST/GlassTV.wgt"
-  echo "Pacote: dist/GlassTV.wgt"
+  echo "Pacote: dist/GlassTV.wgt ($(du -h "$DIST/GlassTV.wgt" | cut -f1))"
+}
+
+# Conecta à TV e garante que o servidor do sdb seja encerrado ao final.
+tv_session_start() {
+  [ "${1:-}" = "keep" ] || trap 'tv_session_end' EXIT INT TERM
+  sdb connect "$TARGET" >/dev/null
+  sdb devices | grep -q "^$TARGET" || die "A TV não respondeu em $TARGET (modo desenvolvedor ligado e IP do Mac configurado nela?)."
+}
+
+tv_session_end() {
+  sdb disconnect "$TARGET" >/dev/null 2>&1 || true
+  sdb kill-server >/dev/null 2>&1 || true
 }
 
 cmd_connect() {
   need_cli; need_tv
-  confirm "Conectar ao modo desenvolvedor da TV em $TARGET (sdb connect)."
-  sdb connect "$TARGET"
+  confirm "Conectar à TV em $TARGET e DEIXAR a conexão aberta (ex.: para criar o certificado). Depois rode: sh tools/tizen.sh disconnect"
+  tv_session_start keep
   sdb devices
+  echo "Conexão aberta. Ao terminar: sh tools/tizen.sh disconnect"
 }
 
 cmd_install() {
   need_cli; need_tv
   [ -f "$DIST/GlassTV.wgt" ] || die "Gere o pacote antes: sh tools/tizen.sh package"
   confirm "INSTALAR a Glass TV na TV $TARGET (pode ser removida depois pela lista de apps ou com 'uninstall')."
+  tv_session_start
   tizen install -s "$TARGET" -n GlassTV.wgt -- "$DIST"
 }
 
 cmd_run() {
   need_cli; need_tv
   confirm "Abrir a Glass TV na TV $TARGET."
+  tv_session_start
   tizen run -s "$TARGET" -p "$APP_ID"
 }
 
 cmd_uninstall() {
   need_cli; need_tv
   confirm "REMOVER a Glass TV da TV $TARGET (as preferências salvas no app serão apagadas)."
+  tv_session_start
   tizen uninstall -s "$TARGET" -p "$APP_ID"
+}
+
+cmd_disconnect() {
+  need_cli; need_tv
+  tv_session_end
+  echo "Servidor do sdb encerrado."
 }
 
 case "${1:-}" in
@@ -141,5 +183,6 @@ case "${1:-}" in
   install) cmd_install ;;
   run) cmd_run ;;
   uninstall) cmd_uninstall ;;
-  *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+  disconnect) cmd_disconnect ;;
+  *) sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac
